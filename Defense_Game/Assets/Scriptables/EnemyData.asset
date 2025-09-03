@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 011fca61a8b485f4bb89a457dcc0a8ce, type: 3}
+  m_Name: EnemyData
+  m_EditorClassIdentifier: 
+  speed: 3
+  separationDistance: 0.2
+  seperationPercent: 1
+  wallAvoidDistance: 0.4
+  randomAngleOffset: 5
+  detectionRadius: 2
+  attackCooldown: 1
+  attackDamage: 10
+  isRanged: 0
+  attackRange: 4
+  maxHp: 100
+  nonAllocBufferSize: 12
