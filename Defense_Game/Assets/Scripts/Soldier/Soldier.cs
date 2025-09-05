@@ -1,36 +1,54 @@
+using System;
 using UnityEngine;
 
 public class Soldier : MonoBehaviour
 {
-    public float attackRange = 20f;
-    public float attackCooldown = 0.3f;
-    private float lastAttackTime;
+    [Header("Data")] public SoldierData data;
+    [Header("Weapon")] public Weapon weapon;
+    
     private Enemy target;
     public LayerMask hitMask;
 
-    void Update()
+    public void Awake()
     {
-        if (Time.time - lastAttackTime >= attackCooldown)
-        {
-            if (target == null || !target.isAlive || Vector3.Distance(transform.position, target.transform.position) > attackRange)
-            {
-                target = EnemyManager.Instance.GetBestTarget(transform.position, attackRange);
-            }
+        weapon.Initialize(this);
+    }
 
-            if (target != null)
-            {
-                ShootAt(target);
-                lastAttackTime = Time.time;
-            }
+    void Update()
+    { 
+        if (target == null || !target.isAlive || Vector3.Distance(transform.position, target.transform.position) > weapon.weaponData.AttackRange)
+        {
+            target = EnemyManager.Instance.GetBestTarget(transform.position, weapon.weaponData.AttackRange);
+        }
+
+        if (target != null)
+        {
+            weapon.TryFire();
         }
     }
 
+    public void TryReload()
+    {
+        weapon.TryReload();
+    }
+
+    public void TrySupply()
+    {
+        weapon.TrySupply();
+    }
+    public void Fire()
+    {
+        if (target != null)
+        {
+            ShootAt(target);
+        }
+    }
     void ShootAt(Enemy e)
     {
         Vector3 start = transform.position;
         Vector3 dir = (e.transform.position - start).normalized;
 
-        if (Physics.Raycast(start, dir, out RaycastHit hit, attackRange, hitMask))
+        if (Physics.Raycast(start, dir, out RaycastHit hit, weapon.weaponData.AttackRange, hitMask))
         {
             // 총알 궤적
             if (hit.collider.tag == "Enemy")
@@ -39,9 +57,11 @@ public class Soldier : MonoBehaviour
 
                 // Enemy에 맞았으면 데미지
                 Enemy enemy = hit.collider.GetComponent<Enemy>();
-                if (enemy != null)
+                if (enemy != null && weapon.leftAmmo > 0)
                 {
                     enemy.TakeDamage(10);
+                    weapon.ChangeState(FireState.Instance);
+                    this.gameObject.transform.LookAt(enemy.transform.position);
                 }
             }
             else
