@@ -39,6 +39,8 @@ public class Squad : MonoBehaviour
 
     public void MoveSquad(Vector3 targetPoint, Vector3 dragDirection)
     {
+        
+        rows = Mathf.Abs(Mathf.RoundToInt((Mathf.Max(dragDirection.magnitude,3)-3)/2))+1;
         squadCenter = CorrectToNavMesh(targetPoint);
         forwardDir = dragDirection.normalized;
 
@@ -48,7 +50,7 @@ public class Squad : MonoBehaviour
     }
 
     // 행 기준으로 중앙 기준 직사각형 배치 계산
-    private Vector3[] CalculateFormationPositions(Vector3 center, Vector3 forward, int rows, float spacing)
+    public Vector3[] CalculateFormationPositions(Vector3 center, Vector3 forward, int rows, float spacing)
     {
         int n = members.Count;
         if (n == 0) return new Vector3[0];
@@ -74,7 +76,7 @@ public class Squad : MonoBehaviour
     }
 
     // NavMesh 기반 위치 보정
-    private void ApplyTerrainCorrection(ref Vector3[] positions)
+    public void ApplyTerrainCorrection(ref Vector3[] positions)
     {
         for (int i = 0; i < positions.Length; i++)
         {
@@ -94,7 +96,7 @@ public class Squad : MonoBehaviour
         }
     }
 
-    private Vector3 CorrectToNavMesh(Vector3 position, float maxDistance = 5f)
+    public Vector3 CorrectToNavMesh(Vector3 position, float maxDistance = 5f)
     {
         NavMeshHit hit;
         if (NavMesh.SamplePosition(position, out hit, maxDistance, NavMesh.AllAreas))

@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class DragDirection : MonoBehaviour
 {
+    public SquadPreview squadPreview;
     private Vector3 clickStartPos;
     private bool isDragging = false;
     public Squad testSquad;
@@ -22,6 +23,12 @@ public class DragDirection : MonoBehaviour
             }
         }
 
+        if (Input.GetMouseButtonDown(1))
+        {
+            isDragging = false;
+            squadPreview.ClearPreview();
+        }
+
         // 드래그 중
         if (isDragging && Input.GetMouseButton(0))
         {
@@ -31,18 +38,17 @@ public class DragDirection : MonoBehaviour
             if (Physics.Raycast(ray, out hit))
             {
                 Vector3 currentPos = hit.point;
-                direction = (currentPos - clickStartPos).normalized; // 방향
-                float distance = Vector3.Distance(currentPos, clickStartPos); // 거리
-
-                Debug.Log($"Drag direction: {direction}, distance: {distance}");
+                direction = (currentPos - clickStartPos); // 방향
+                squadPreview.ShowPreview(clickStartPos, hit.point);
             }
         }
 
         // 마우스 떼면 드래그 종료
-        if (Input.GetMouseButtonUp(0))
+        if (Input.GetMouseButtonUp(0) && isDragging)
         {
             isDragging = false;
             testSquad.MoveSquad(clickStartPos, direction);
+            squadPreview.ClearPreview();
         }
     }
 }
