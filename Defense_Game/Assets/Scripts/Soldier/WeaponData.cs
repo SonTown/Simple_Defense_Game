@@ -7,7 +7,8 @@ public class WeaponData : ScriptableObject
     public int Damage = 10;
     public int MaxAmmo = 30;
     public int MaxMagazine = 5;
-    
+    [Header("Type")] 
+    public bool isExplosive = false;
     [Header("Cooldowns")]
     public float AttackRange = 30f;
     public float AttackDelay = 0.1f;

@@ -24,11 +24,15 @@ public class SquadPreview : MonoBehaviour
         );
     }
 
+    public void SetSquad(Squad squad)
+    {
+        this.squad = squad;
+    }
     public void ShowPreview(Vector3 start, Vector3 end) {
         ClearPreview();
 
         Vector3 dir = (end - start);
-        rows = Mathf.Abs(Mathf.RoundToInt((Mathf.Max(Vector3.Distance(start, end),3)-3)/2))+1;
+        rows = Mathf.Min(Mathf.Abs(Mathf.RoundToInt((Mathf.Max(Vector3.Distance(start, end),3)-3)/2))+1,squad.members.Count);
         squadCenter = squad.CorrectToNavMesh(start);
         Vector3[] formationPositions = squad.CalculateFormationPositions(squadCenter, dir.normalized, rows, spacing);
         squad.ApplyTerrainCorrection(ref formationPositions);

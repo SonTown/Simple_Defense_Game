@@ -39,6 +39,15 @@ public class ObjectPoolManager : MonoBehaviour
         return go;
     }
 
+    public GameObject SpawnImpactFx(Vector3 position, float radius)
+    {
+        var go = impactFxPool.Get();
+        position.y = 0;
+        go.transform.position = position;
+        go.transform.localScale = new Vector3(radius, radius, radius);
+        return go;
+    }
+
     public GameObject SpawnImpactFx(Vector3 pos, Quaternion rot)
     {
         var go = impactFxPool.Get();

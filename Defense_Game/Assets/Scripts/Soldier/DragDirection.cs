@@ -5,6 +5,7 @@ public class DragDirection : MonoBehaviour
     public SquadPreview squadPreview;
     private Vector3 clickStartPos;
     private bool isDragging = false;
+    public SquadManager squadManager;
     public Squad testSquad;
     private Vector3 direction;
     void Update()
@@ -20,6 +21,13 @@ public class DragDirection : MonoBehaviour
                 clickStartPos = hit.point; // 클릭한 지형 위치
                 isDragging = true;
                 Debug.Log("Clicked at: " + clickStartPos);
+            }
+        }
+        for (int i = 1; i <= 9; i++)
+        {
+            if (Input.GetKeyDown(i.ToString())) // "1" ~ "9"
+            {
+                TrySelectSquad(i);
             }
         }
 
@@ -49,6 +57,21 @@ public class DragDirection : MonoBehaviour
             isDragging = false;
             testSquad.MoveSquad(clickStartPos, direction);
             squadPreview.ClearPreview();
+        }
+    }
+    void TrySelectSquad(int index)
+    {
+        Squad squad = squadManager.SelectSquad(index);
+
+        if (squad != null)
+        {
+            testSquad = squad;
+            squadPreview.SetSquad(squad);
+            Debug.Log($"스쿼드 {index} 선택됨!");
+        }
+        else
+        {
+            Debug.Log($"스쿼드 {index} 없음 (무시)");
         }
     }
 }

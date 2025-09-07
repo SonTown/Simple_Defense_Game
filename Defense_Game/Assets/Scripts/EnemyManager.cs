@@ -72,6 +72,31 @@ public class EnemyManager : MonoBehaviour
         candidates.Sort((a, b) => b.progress.CompareTo(a.progress));
         return candidates[0];
     }
+    // 폭발 범위 내 적 검색
+    public List<Enemy> GetEnemiesInRange(Vector3 position, float range)
+    {
+        List<Enemy> result = new List<Enemy>();
+        Vector2Int centerCell = GetCell(position);
+        int cellRange = Mathf.CeilToInt(range / cellSize);
+
+        for (int z = centerCell.y - cellRange; z <= centerCell.y + cellRange; z++)
+        {
+            for (int x = centerCell.x - cellRange; x <= centerCell.x + cellRange; x++)
+            {
+                if (x < 0 || z < 0 || x >= gridSizeX || z >= gridSizeZ) continue;
+
+                foreach (var e in grid[x, z])
+                {
+                    if (!e.isAlive) continue;
+                    if ((e.transform.position - position).sqrMagnitude <= range * range)
+                    {
+                        result.Add(e);
+                    }
+                }
+            }
+        }
+        return result;
+    }
 
     Vector2Int GetCell(Vector3 pos)
     {

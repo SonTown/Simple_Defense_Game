@@ -40,7 +40,7 @@ public class Squad : MonoBehaviour
     public void MoveSquad(Vector3 targetPoint, Vector3 dragDirection)
     {
         
-        rows = Mathf.Abs(Mathf.RoundToInt((Mathf.Max(dragDirection.magnitude,3)-3)/2))+1;
+        rows = Mathf.Min(Mathf.Abs(Mathf.RoundToInt((Mathf.Max(dragDirection.magnitude,3)-3)/2))+1,members.Count);
         squadCenter = CorrectToNavMesh(targetPoint);
         forwardDir = dragDirection.normalized;
 

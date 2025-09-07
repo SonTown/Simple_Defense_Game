@@ -15,6 +15,7 @@ MonoBehaviour:
   Damage: 10
   MaxAmmo: 5
   MaxMagazine: 10
+  isExplosive: 1
   AttackRange: 50
   AttackDelay: 0.5
   ReloadDelay: 1.2

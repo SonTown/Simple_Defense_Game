@@ -128,9 +128,8 @@ public class EnemyAI : MonoBehaviour
     {
         int count = Physics.OverlapSphereNonAlloc(transform.position, data.detectionRadius,
                                                   detectionBuffer, targetMask);
-
         if (count <= 0) return;
-
+        
         // 가장 가까운 타겟 선택(간단)
         float best = float.MaxValue;
         Transform bestT = null;

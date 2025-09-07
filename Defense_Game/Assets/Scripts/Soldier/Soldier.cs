@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class Soldier : MonoBehaviour
@@ -40,7 +41,14 @@ public class Soldier : MonoBehaviour
     {
         if (target != null)
         {
-            ShootAt(target);
+            if (weapon.weaponData.isExplosive == false)
+            {
+                ShootAt(target);
+            }
+            else
+            {
+                ShootExplosiveAt(target);
+            }
         }
     }
     void ShootAt(Enemy e)
@@ -69,5 +77,39 @@ public class Soldier : MonoBehaviour
                 target = null;
             }
         }
+    }
+    void ShootExplosiveAt(Enemy targetEnemy)
+    {
+        Vector3 start = transform.position;
+        Vector3 dir = (targetEnemy.transform.position - start).normalized;
+
+        if (Physics.Raycast(start, dir, out RaycastHit hit, weapon.weaponData.AttackRange, hitMask))
+        {
+            // 총알 궤적
+            ObjectPoolManager.Instance.SpawnBulletTrail(start, hit.point);
+
+            // 폭발 처리
+            Explode(hit.point);
+        }
+    }
+
+    void Explode(Vector3 explosionPoint)
+    {
+        float explosionRadius = 5f;  // 폭발 반경
+        int explosionDamage = 20;    // 기본 데미지
+
+        // EnemyManager 활용 → 반경 내 적 리스트 가져오기
+        List<Enemy> enemies = EnemyManager.Instance.GetEnemiesInRange(explosionPoint, explosionRadius);
+
+        foreach (var enemy in enemies)
+        {
+            float dist = Vector3.Distance(enemy.transform.position, explosionPoint);
+            float damagePercent = Mathf.Clamp01(1 - (dist / explosionRadius));
+            int finalDamage = Mathf.RoundToInt(explosionDamage * damagePercent);
+
+            enemy.TakeDamage(10);
+        }
+        weapon.ChangeState(FireState.Instance);
+        ObjectPoolManager.Instance.SpawnImpactFx(explosionPoint, explosionRadius);
     }
 }
