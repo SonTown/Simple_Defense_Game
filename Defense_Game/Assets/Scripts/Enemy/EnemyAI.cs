@@ -119,7 +119,16 @@ public class EnemyAI : MonoBehaviour
         }
         separation.y = 0;
         separation.Normalize();
-        Vector3 moveDir = (flowDir + separation*data.seperationPercent).normalized;
+        Vector3 wallAvoid = Vector3.zero;
+        RaycastHit hit;
+        if (Physics.Raycast(transform.position, flowDir, out hit, data.wallAvoidDistance, LayerMask.GetMask("Obstacle")))
+        {
+            wallAvoid = hit.normal; // 벽 방향으로 튕김
+        }
+
+        wallAvoid.y = 0;
+        wallAvoid.Normalize();
+        Vector3 moveDir = (flowDir + separation*data.seperationPercent+wallAvoid*data.wallAvoidPercent).normalized;
         float angleOffset = Random.Range(-data.randomAngleOffset, data.randomAngleOffset);
         return Quaternion.Euler(0, angleOffset, 0) * moveDir;
     }

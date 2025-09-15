@@ -1,16 +1,20 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.IO;
+using Unity.AI.Navigation;
 
 public class FlowField : MonoBehaviour
 {
     public static FlowField Instance;
 
-    public static int gridSizeX = 50;
-    public static int gridSizeY = 100;
-    public static float cellSize = 1f;
+    public static int gridSizeX = 25;
+    public static int gridSizeY = 50;
+    public static float cellSize = 2f;
 
     public Transform target; // 목표 위치 (예: 성)
 
+    public NavMeshSurface surface;
+    public GameObject obstaclePrefab;
     // 셀 타입 정의
     public enum CellType { Empty, Obstacle, Wall, Water }
     private CellType[,] grid;
@@ -36,6 +40,7 @@ public class FlowField : MonoBehaviour
         grid = new CellType[gridSizeX, gridSizeY];
         flowVectors = new Vector3[gridSizeX, gridSizeY];
         costMap = new float[gridSizeX, gridSizeY];
+        LoadObstacles();
     }
 
     void Start()
@@ -61,6 +66,46 @@ public class FlowField : MonoBehaviour
         if (InBounds(x, y)) return grid[x, y];
         return CellType.Wall; // 범위 밖은 벽 취급
     }
+    public void LoadObstacles()
+    {
+        string path = Path.Combine(Application.persistentDataPath, "obstacles.json");
+        if (!File.Exists(path))
+        {
+            Debug.LogWarning("No obstacle save file found.");
+            return;
+        }
+
+        string json = File.ReadAllText(path);
+        ObstacleDataList wrapper = JsonUtility.FromJson<ObstacleDataList>(json);
+
+        // 기본 빈 상태 초기화
+        for (int x = 0; x < gridSizeX; x++)
+        {
+            for (int y = 0; y < gridSizeY; y++)
+            {
+                grid[x, y] = CellType.Empty;
+            }
+        }
+
+        foreach (var data in wrapper.items)
+        {
+            for (int dx = -(data.size.x/2); dx < (data.size.x+1)/2; dx++)
+            {
+                for (int dy = -(data.size.y/2); dy < (data.size.y+1)/2; dy++)
+                {
+                    int gx = data.position.x + dx;
+                    int gy = data.position.y + dy;
+                    if (gx >= 0 && gx < gridSizeX && gy >= 0 && gy < gridSizeY)
+                    {
+                        grid[gx, gy] = data.cellType;
+                    }
+                }
+            }
+            Debug.Log(data.position);
+            GameObject obj = Instantiate(obstaclePrefab,new Vector3( data.position.x*cellSize+cellSize/2,-2,data.position.y*cellSize+cellSize/2), Quaternion.identity);
+        }
+        surface.BuildNavMesh();
+    }
 
     // --------------------------
     // FlowField 생성
@@ -72,15 +117,6 @@ public class FlowField : MonoBehaviour
         for (int x = 0; x < gridSizeX; x++)
             for (int y = 0; y < gridSizeY; y++)
                 costMap[x, y] = float.MaxValue;
-        for (int x = 0; x < 20; x++)
-        {
-            grid[x, 50] = CellType.Obstacle;
-            grid[x+30, 50] = CellType.Obstacle;
-            grid[x, 51] = CellType.Obstacle;
-            grid[x+30, 51] = CellType.Obstacle;
-            grid[x, 49] = CellType.Obstacle;
-            grid[x+30, 49] = CellType.Obstacle;
-        }
 
         // 2. BFS로 목표까지 거리 계산
         Queue<Vector2Int> queue = new Queue<Vector2Int>();

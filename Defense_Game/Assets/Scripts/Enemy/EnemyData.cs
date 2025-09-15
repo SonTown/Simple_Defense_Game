@@ -6,7 +6,8 @@ public class EnemyData : ScriptableObject
     [Header("Move")]
     public float speed = 3f;
     public float separationDistance = 0.8f;
-    public float seperationPercent = 0.2f;// 적-적 최소 간격
+    public float seperationPercent = 0.2f;
+    public float wallAvoidPercent = 0.2f;// 적-적 최소 간격
     public float wallAvoidDistance = 0.8f;    // 벽 전방 회피 레이 길이
     public float randomAngleOffset = 30f;
     

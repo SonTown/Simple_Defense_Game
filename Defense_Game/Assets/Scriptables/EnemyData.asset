@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: EnemyData
   m_EditorClassIdentifier: 
   speed: 3
-  separationDistance: 0.2
+  separationDistance: 1
   seperationPercent: 1
-  wallAvoidDistance: 0.4
+  wallAvoidPercent: 2
+  wallAvoidDistance: 3
   randomAngleOffset: 5
   detectionRadius: 2
   attackCooldown: 1
