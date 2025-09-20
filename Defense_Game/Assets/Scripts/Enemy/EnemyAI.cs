@@ -1,12 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public enum EnemyState { Move, AttackObstacle, AttackAlly }
+
 
 public class EnemyAI : MonoBehaviour
 {
     [Header("Data")]
-    public EnemyData data;
+    public EnemyData data;//--
 
     [Header("Layers")]
     public LayerMask enemyMask;     // Enemy 레이어
@@ -14,25 +14,25 @@ public class EnemyAI : MonoBehaviour
     public LayerMask targetMask;    // Ally / Obstacle 등 공격 대상 레이어
 
     [Header("State")]
-    public EnemyState state = EnemyState.Move;
+    public EnemyState state = EnemyState.Move;//--
 
     // 내부
-    private Rigidbody rb;
+    private Rigidbody rb;//X
     private Transform currentTarget;
     private float attackTimer;
     // NonAlloc 버퍼
-    private Collider[] detectionBuffer;
-    private Collider[] separationBuffer;
+    private Collider[] detectionBuffer;//X
+    private Collider[] separationBuffer;//X
 
     // Batch
-    public static readonly List<EnemyAI> All = new List<EnemyAI>();
-    private int index = 0;
-    private static int batchCursor = 0;     // 0..(batchSize-1)
-    public static int batchSize = 50;       // 프레임당 업데이트할 그룹 수
+    public static readonly List<EnemyAI> All = new List<EnemyAI>();//X
+    private int index = 0;//X
+    private static int batchCursor = 0; //X    // 0..(batchSize-1)
+    public static int batchSize = 50;  //X     // 프레임당 업데이트할 그룹 수
     //Lerp
     private Vector3 targetPosition;
-    private Vector3 velocity;
-    private Vector3 moveDir;
+    private Vector3 velocity; //--
+    private Vector3 moveDir; //--
     void Awake()
     {
         All.Add(this);

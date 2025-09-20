@@ -2,6 +2,9 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.IO;
 using Unity.AI.Navigation;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Mathematics;
 
 public class FlowField : MonoBehaviour
 {
@@ -159,12 +162,6 @@ public class FlowField : MonoBehaviour
         {
             for (int y = 0; y < gridSizeY; y++)
             {
-                if (grid[x, y] == CellType.Obstacle || grid[x, y] == CellType.Wall)
-                {
-                    flowVectors[x, y] = Vector3.zero;
-                    continue;
-                }
-
                 Vector3 bestDir = Vector3.zero;
                 float minCost = costMap[x, y];
 
@@ -184,7 +181,44 @@ public class FlowField : MonoBehaviour
                 flowVectors[x, y] = bestDir.normalized;
             }
         }
+        SyncToECS();
     }
+    public void SyncToECS()
+    {
+        var em = World.DefaultGameObjectInjectionWorld.EntityManager;
+
+        // FlowFieldComponent 달린 엔티티 찾기
+        var query = em.CreateEntityQuery(typeof(FlowFieldComponent));
+        var entities = query.ToEntityArray(Allocator.Temp);
+
+        if (entities.Length == 0)
+        {
+            Debug.LogError("FlowFieldComponent를 가진 엔티티가 없습니다!");
+            return;
+        }
+
+        var flowFieldEntity = entities[0]; // 하나만 있다고 가정
+
+        var nativeArray = new NativeParallelHashMap<int,float3>(gridSizeX * gridSizeY, Allocator.Persistent);
+
+        // 2차원 배열 → 1차원 NativeArray 복사
+        for (int x = 0; x < gridSizeX; x++)
+        {
+            for (int y = 0; y < gridSizeY; y++)
+            {
+                nativeArray[x + y * gridSizeX] = flowVectors[x, y];
+            }
+        }
+
+        em.SetComponentData(flowFieldEntity, new FlowFieldComponent
+        {
+            FlowVectors = nativeArray
+        });
+
+        entities.Dispose();
+    }
+
+
 
     // --------------------------
     // 유닛이 방향을 얻는 함수
