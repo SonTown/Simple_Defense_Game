@@ -3,8 +3,8 @@ using UnityEngine;
 public class Obstacle : MonoBehaviour
 {
     [Header("Grid Data")]
-    public Vector2Int size = new Vector2Int(1, 5); 
-    public Vector2Int origin;  
+    public Vector3Int size = new Vector3Int(1, 5, 5); 
+    public Vector3Int origin;  
 
     [Header("Properties")]
     public FlowField.CellType cellType = FlowField.CellType.Obstacle;
@@ -21,7 +21,6 @@ public class Obstacle : MonoBehaviour
         size = data.size;
         cellType = data.cellType;
         destructible = data.destructible;
-
         transform.position = new Vector3(origin.x, 0, origin.y);
     }
 }

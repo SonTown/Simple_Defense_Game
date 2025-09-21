@@ -3,12 +3,12 @@ using UnityEngine;
 [System.Serializable]
 public class ObstacleData
 {
-    public Vector2Int position;
-    public Vector2Int size;
+    public Vector3Int position;
+    public Vector3Int size;
     public FlowField.CellType cellType;
     public bool destructible;
 
-    public ObstacleData(Vector2Int pos, Vector2Int size, FlowField.CellType type, bool destructible)
+    public ObstacleData(Vector3Int pos, Vector3Int size, FlowField.CellType type, bool destructible)
     {
         this.position = pos;
         this.size = size;

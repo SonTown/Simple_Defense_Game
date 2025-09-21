@@ -10,7 +10,7 @@ public class GridManager : MonoBehaviour
     public GameObject obstaclePrefab;
     public GameObject previewPrefab;
 
-    private Vector2Int size;
+    private Vector3Int size;
     private bool[,] grid;
     private GameObject previewObj;
 
@@ -45,7 +45,7 @@ public class GridManager : MonoBehaviour
         if (Physics.Raycast(ray, out hit, Mathf.Infinity, groundLayer))
         {
             Vector3 hitPoint = hit.point;
-            Vector2Int gridPos = WorldToGrid(hitPoint);
+            Vector3Int gridPos = WorldToGrid(hitPoint);
 
             Vector3 worldPos = GridToWorld(gridPos, size);
             previewObj.transform.position = worldPos;
@@ -63,7 +63,7 @@ public class GridManager : MonoBehaviour
         if (!previewObj.activeSelf) return;
 
         Vector3 worldPos = previewObj.transform.position;
-        Vector2Int gridOrigin = WorldToGrid(worldPos);
+        Vector3Int gridOrigin = WorldToGrid(worldPos);
 
         if (CanPlace(gridOrigin, size))
         {
@@ -78,7 +78,7 @@ public class GridManager : MonoBehaviour
     }
 
     // === Helpers ===
-    public bool CanPlace(Vector2Int origin, Vector2Int size)
+    public bool CanPlace(Vector3Int origin, Vector3Int size)
     {
         for (int x = -(size.x/2); x < (size.x+1)/2; x++)
         {
@@ -93,7 +93,7 @@ public class GridManager : MonoBehaviour
         return true;
     }
 
-    public void Occupy(Vector2Int origin, Vector2Int size)
+    public void Occupy(Vector3Int origin, Vector3Int size)
     {
         for (int x = -(size.x/2); x < (size.x+1)/2; x++)
         {
@@ -104,7 +104,7 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    public void Release(Vector2Int origin, Vector2Int size)
+    public void Release(Vector3Int origin, Vector3Int size)
     {
         for (int x = -(size.x/2); x < (size.x+1)/2; x++)
         {
@@ -115,14 +115,14 @@ public class GridManager : MonoBehaviour
         }
     }
 
-    public Vector2Int WorldToGrid(Vector3 worldPos)
+    public Vector3Int WorldToGrid(Vector3 worldPos)
     {
         int x = Mathf.FloorToInt(worldPos.x / FlowField.cellSize);
         int y = Mathf.FloorToInt(worldPos.z / FlowField.cellSize);
-        return new Vector2Int(x, y);
+        return new Vector3Int(x, y, 0);
     }
 
-    public Vector3 GridToWorld(Vector2Int gridPos, Vector2Int size)
+    public Vector3 GridToWorld(Vector3Int gridPos, Vector3Int size)
     {
         float worldX = gridPos.x * FlowField.cellSize+FlowField.cellSize / 2f;
         float worldZ = gridPos.y * FlowField.cellSize+FlowField.cellSize / 2f;
