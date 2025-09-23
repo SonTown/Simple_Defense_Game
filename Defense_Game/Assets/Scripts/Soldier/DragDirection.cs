@@ -13,14 +13,17 @@ public class DragDirection : MonoBehaviour
         // 마우스 클릭 시작
         if (Input.GetMouseButtonDown(0))
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
-
-            if (Physics.Raycast(ray, out hit))
+            if (Camera.main != null)
             {
-                clickStartPos = hit.point; // 클릭한 지형 위치
-                isDragging = true;
-                Debug.Log("Clicked at: " + clickStartPos);
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                RaycastHit hit;
+
+                if (Physics.Raycast(ray, out hit))
+                {
+                    clickStartPos = hit.point; // 클릭한 지형 위치
+                    isDragging = true;
+                    Debug.Log("Clicked at: " + clickStartPos);
+                }
             }
         }
         for (int i = 1; i <= 9; i++)

@@ -30,12 +30,9 @@ public partial struct MoveEnemyJob : IJobEntity
             enemy.position = enemy.targetPosition;
             transform.Position= enemy.position;
             enemy.cell=enemy.targetCell;
-            unsafe
-            {
-                int* ptr = (int*)NativeArrayUnsafeUtility.GetUnsafePtr(CellCount);
-                int insertIndex = Interlocked.Add(ref ptr[enemy.cellIndex], 1) - 1;
-                CellIndices[CellStart[enemy.cellIndex] + insertIndex] = enemy.entityIndex;
-            }
+            int insertIndex = CellStart[enemy.cellIndex];
+            CellCount[enemy.cellIndex] += 1;
+            CellIndices[CellCount[enemy.cellIndex] + insertIndex] = enemy.entityIndex;
         }
         else
         {

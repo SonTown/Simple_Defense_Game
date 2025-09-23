@@ -1,10 +1,12 @@
 using System;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 public struct SpatialGridData : IComponentData
 {
@@ -14,57 +16,19 @@ public struct SpatialGridData : IComponentData
     public float CellSize;
 }
 
-public struct FlowFieldComponent : IComponentData
+public struct WeightElement : IBufferElementData
 {
-    [ReadOnly] public NativeArray<float> Weights;
-    [ReadOnly] public NativeArray<int> ProcessOrder;
+    public float value;
 }
 
-public partial class FlowFieldSystem : SystemBase
+public struct ProcessOrderElement : IBufferElementData
 {
-    public NativeArray<float> Weights;
-    public NativeArray<int> ProcessOrder;
-
-    protected override void OnCreate()
-    {
-        // 예시 크기
-        int n = 100;
-
-        // NativeArray 생성
-        Weights = new NativeArray<float>(n, Allocator.Persistent);
-        ProcessOrder = new NativeArray<int>(n, Allocator.Persistent);
-
-        // 데이터를 초기화 (예시)
-        for (int i = 0; i < n; i++)
-        {
-            Weights[i] = i * 0.1f;
-            ProcessOrder[i] = i;
-        }
-
-        // Singleton Entity 생성 후 Component 할당
-        var entity = EntityManager.CreateEntity();
-        EntityManager.AddComponentData(entity, new FlowFieldComponent
-        {
-            Weights = Weights,
-            ProcessOrder = ProcessOrder
-        });
-    }
-
-    protected override void OnDestroy()
-    {
-        // NativeArray Dispose
-        if (Weights.IsCreated) Weights.Dispose();
-        if (ProcessOrder.IsCreated) ProcessOrder.Dispose();
-    }
-
-    protected override void OnUpdate() { }
+    public int value;
 }
 
-
-// 전역적으로 접근할 수 있는 파티션 컨테이너
-public struct SpatialPartition : IComponentData
+public struct PersonnelElement : IBufferElementData
 {
-    public NativeArray<int> Personnel;
+    public float value;
 }
 
 [BurstCompile]
@@ -113,7 +77,7 @@ public struct AssignMoveJob : IJobParallelFor
     [ReadOnly] public NativeArray<int> CellIndices;
     [ReadOnly] public NativeArray<Entity> targets;
     [ReadOnly] public NativeArray<CellMoveInfo> CellMoves;
-
+    [NativeDisableParallelForRestriction]
     public ComponentLookup<EnemyPositionComponent> TargetLookup; // 엔티티에 타겟 셀 기록
     [ReadOnly] public int GridSizeX;
     [ReadOnly] public int GridSizeY;
@@ -130,12 +94,12 @@ public struct AssignMoveJob : IJobParallelFor
         // direction offsets (6방향)
         Span<int3> dirs = stackalloc int3[6]
         {
-            new int3( 1, 0, 0),
-            new int3(-1, 0, 0),
-            new int3( 0, 1, 0),
-            new int3( 0,-1, 0),
-            new int3( 0, 0, 1),
-            new int3( 0, 0,-1)
+            new int3( -1, 0, 0),
+            new int3(1, 0, 0),
+            new int3( 0, -1, 0),
+            new int3( 0,1, 0),
+            new int3( 0, 0, -1),
+            new int3( 0, 0,1)
         };
 
         int assignedOffset = 0;
@@ -144,7 +108,6 @@ public struct AssignMoveJob : IJobParallelFor
         {
             int moveCount = moveInfo.Get(d);
             if (moveCount == 0) continue;
-
             // 이 셀의 (x,y,z) 좌표
             int x = cellId % GridSizeX;
             int y = (cellId / GridSizeX) % GridSizeY;
@@ -156,13 +119,14 @@ public struct AssignMoveJob : IJobParallelFor
                 continue; // 범위 밖
 
             int targetCellId = dst.x + dst.y * GridSizeX + dst.z * GridSizeX * GridSizeY;
-
             // moveCount만큼 엔티티에 할당
             for (int i = 0; i < moveCount && (assignedOffset+i) < count; i++)
             {
                 int entityIndex = CellIndices[start + assignedOffset + i];
                 Entity e = targets[entityIndex];
-                TargetLookup[e].SetTargetCell(dst,CellSize,targetCellId,(uint)(i * 12345 + 1));
+                var enemy = TargetLookup[e];  // ref로 접근
+                enemy.SetTargetCell(dst, CellSize, targetCellId, (uint)(i * 12345 + 1));
+                TargetLookup[e] = enemy;
             }
 
             assignedOffset += moveCount;

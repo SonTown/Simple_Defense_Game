@@ -91,16 +91,16 @@ public class FlowField : MonoBehaviour
                     for (int dz = 0; dz < data.size.z; dz++)
                     {
                         int gx = data.position.x + dx;
-                        int gy = data.position.y + dy;
-                        int gz = data.position.z + dz;
+                        int gy = data.position.z + dy;
+                        int gz = data.position.y + dz;
                         if (InBounds(gx, gy, gz))
                             grid[gx, gy, gz] = data.cellType;
                     }
 
             // 시각화
             Vector3 pos = new Vector3(data.position.x * cellSize + cellSize / 2,
-                                      data.position.y * cellSize + cellSize / 2,
-                                      data.position.z * cellSize);
+                                      data.position.z * cellSize + cellSize / 2,
+                                      data.position.y * cellSize);
             Instantiate(obstaclePrefab, pos, Quaternion.identity);
         }
     }
@@ -182,46 +182,54 @@ public class FlowField : MonoBehaviour
 
     public void SyncToECS()
     {
-        
         var em = World.DefaultGameObjectInjectionWorld.EntityManager;
-        var query = em.CreateEntityQuery(typeof(FlowFieldComponent));
+
+        // 1. EntityQuery로 기존 엔티티 검색
+        var query = em.CreateEntityQuery(typeof(WeightElement), typeof(ProcessOrderElement));
         var entities = query.ToEntityArray(Allocator.Temp);
+
+        Entity flowFieldEntity;
 
         if (entities.Length == 0)
         {
-            Debug.LogError("FlowFieldComponent 엔티티 없음!");
-            return;
+            // 2-1. 존재하지 않으면 새로 생성
+            flowFieldEntity = em.CreateEntity();
+            em.AddBuffer<WeightElement>(flowFieldEntity);
+            em.AddBuffer<ProcessOrderElement>(flowFieldEntity);
+        }
+        else
+        {
+            // 2-2. 존재하면 기존 엔티티 사용
+            flowFieldEntity = entities[0];
         }
 
-        var flowFieldEntity = entities[0];
-        int totalCells = gridSizeX * gridSizeY * gridSizeZ;
-        var weightsNative = new NativeArray<float>(totalCells, Allocator.Persistent);
+        entities.Dispose();
 
-        // 2. 인덱스 리스트 생성 (0 ~ totalCells-1)
+        // 3. DynamicBuffer 가져오기
+        var weightBuffer = em.GetBuffer<WeightElement>(flowFieldEntity);
+        var orderBuffer = em.GetBuffer<ProcessOrderElement>(flowFieldEntity);
+
+        // 4. 기존 내용 삭제
+        weightBuffer.Clear();
+        orderBuffer.Clear();
+
+        int totalCells = gridSizeX * gridSizeY * gridSizeZ;
         List<int> indices = new List<int>(totalCells);
+
+        // 5. weights 채우기
         for (int x = 0; x < gridSizeX; x++)
         for (int y = 0; y < gridSizeY; y++)
         for (int z = 0; z < gridSizeZ; z++)
         {
             int idx = x + y * gridSizeX + z * gridSizeX * gridSizeY;
-            weightsNative[idx] = costMap[x, y, z]; // Weights에 채우기
-            indices.Add(idx);                     // 인덱스 리스트에 추가
+            weightBuffer.Add(new WeightElement { value = costMap[x, y, z] });
+            indices.Add(idx);
         }
 
-        // 3. MonoBehaviour에서 List.Sort 사용
-        indices.Sort((a, b) => weightsNative[a].CompareTo(weightsNative[b]));
-
-        // 4. ProcessOrder용 NativeArray 생성
-        var processOrderNative = new NativeArray<int>(totalCells, Allocator.Persistent);
-        for (int i = 0; i < totalCells; i++)
-            processOrderNative[i] = indices[i];
-        em.SetComponentData(flowFieldEntity, new FlowFieldComponent
-        {
-            Weights = weightsNative,
-            ProcessOrder=processOrderNative
-        });
-
-        entities.Dispose();
+        // 6. ProcessOrder 계산
+        indices.Sort((a, b) => weightBuffer[a].value.CompareTo(weightBuffer[b].value));
+        for (int i = 0; i < indices.Count; i++)
+            orderBuffer.Add(new ProcessOrderElement { value = indices[i] });
     }
     #endregion
 

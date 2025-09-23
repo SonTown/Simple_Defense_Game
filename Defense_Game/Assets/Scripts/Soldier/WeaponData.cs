@@ -79,14 +79,14 @@ public class SupplyState : IWeaponState
 
     public async void Enter(Weapon weapon)
     {
-        Debug.Log($"[{weapon.name}] 보급 시작");
+        //Debug.Log($"[{weapon.name}] 보급 시작");
 
         await UniTask.Delay(System.TimeSpan.FromSeconds(2f)); // SupplyDelay를 WeaponData에 넣어도 됨
 
         weapon.leftMagazine = weapon.weaponData.MaxMagazine;
         weapon.leftAmmo = weapon.weaponData.MaxAmmo;
 
-        Debug.Log($"[{weapon.name}] 보급 완료");
+        //Debug.Log($"[{weapon.name}] 보급 완료");
 
         weapon.ChangeState(IdleState.Instance);
     }

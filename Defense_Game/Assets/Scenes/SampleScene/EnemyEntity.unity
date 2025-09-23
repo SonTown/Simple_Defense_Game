@@ -180,7 +180,7 @@ MonoBehaviour:
   GridSizeX: 25
   GridSizeY: 50
   GridSizeZ: 10
-  CellSize: 1
+  CellSize: 2
 --- !u!1 &1981594453
 GameObject:
   m_ObjectHideFlags: 0
@@ -190,7 +190,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1981594455}
-  - component: {fileID: 1981594454}
   m_Layer: 0
   m_Name: FLowfield
   m_TagString: Untagged
@@ -198,18 +197,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &1981594454
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1981594453}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0533f4ecfb391d24fafec3032ee8f817, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &1981594455
 Transform:
   m_ObjectHideFlags: 0

@@ -37,16 +37,16 @@ public struct EnemyPositionComponent : IComponentData
 
         float3 cellMin = new float3(
             targetCell.x * cellSize,
-            targetCell.y * cellSize,
-            targetCell.z * cellSize
+            targetCell.z * cellSize,
+            targetCell.y * cellSize
         );
 
         float3 cellMax = cellMin + cellSize;
 
         targetPosition = new float3(
             random.NextFloat(cellMin.x, cellMax.x),
-            random.NextFloat(cellMin.y, cellMax.y),
-            random.NextFloat(cellMin.z, cellMax.z)
+            random.NextFloat(cellMin.z, cellMax.z),
+            random.NextFloat(cellMin.y, cellMax.y)
         );
     }
 }
