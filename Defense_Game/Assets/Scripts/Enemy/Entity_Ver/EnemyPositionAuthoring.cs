@@ -37,8 +37,8 @@ public struct EnemyPositionComponent : IComponentData
 
         float3 cellMin = new float3(
             targetCell.x * cellSize,
-            targetCell.z * cellSize,
-            targetCell.y * cellSize
+            targetCell.y * cellSize,
+            targetCell.z * cellSize
         );
 
         float3 cellMax = cellMin + cellSize;

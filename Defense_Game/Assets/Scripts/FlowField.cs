@@ -214,22 +214,26 @@ public class FlowField : MonoBehaviour
         orderBuffer.Clear();
 
         int totalCells = gridSizeX * gridSizeY * gridSizeZ;
-        List<int> indices = new List<int>(totalCells);
+        // idx와 cost를 pair로 묶기
+        List<(int idx, float cost)> cellList = new List<(int, float)>();
 
-        // 5. weights 채우기
-        for (int x = 0; x < gridSizeX; x++)
-        for (int y = 0; y < gridSizeY; y++)
         for (int z = 0; z < gridSizeZ; z++)
+        for (int y = 0; y < gridSizeY; y++)
+        for (int x = 0; x < gridSizeX; x++)
         {
             int idx = x + y * gridSizeX + z * gridSizeX * gridSizeY;
-            weightBuffer.Add(new WeightElement { value = costMap[x, y, z] });
-            indices.Add(idx);
+            float cost = costMap[x, y, z];
+            cellList.Add((idx, cost));
+            weightBuffer.Add(new WeightElement { value = cost });
+        }
+        
+        cellList.Sort((a, b) => a.cost.CompareTo(b.cost));
+
+        foreach (var cell in cellList)
+        {
+            orderBuffer.Add(new ProcessOrderElement { value = cell.idx });
         }
 
-        // 6. ProcessOrder 계산
-        indices.Sort((a, b) => weightBuffer[a].value.CompareTo(weightBuffer[b].value));
-        for (int i = 0; i < indices.Count; i++)
-            orderBuffer.Add(new ProcessOrderElement { value = indices[i] });
     }
     #endregion
 

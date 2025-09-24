@@ -1,14 +1,11 @@
-using System;
-using System.Diagnostics;
-using System.Numerics;
 using Unity.Entities;
 using Unity.Transforms;
 using Unity.Mathematics;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-using Unity.Profiling;
-using Unity.VisualScripting;
 using UnityEngine;
 using Random = Unity.Mathematics.Random;
 
@@ -36,8 +33,8 @@ public partial class EnemyMoveSystem : SystemBase
         MoveInfo = new NativeArray<CellMoveInfo>(15000,Allocator.Persistent);
         Personnel=new NativeArray<int>(15000,Allocator.Persistent);
         TargetLookup = GetComponentLookup<EnemyPositionComponent>(false);
-        weightsValues = new NativeArray<float>(15000, Allocator.Persistent);
-        orderValues = new NativeArray<int>(15000, Allocator.TempJob);
+        weightsValues = new NativeArray<float>(12500, Allocator.Persistent);
+        orderValues = new NativeArray<int>(12500, Allocator.Persistent);
     }
 
     protected override void OnStartRunning()
@@ -118,7 +115,7 @@ public partial class EnemyMoveSystem : SystemBase
             CellIndices =  CellIndices
         };
         JobHandle enemyMoveHandle = enemyMoveJob.ScheduleParallel(Dependency);
-
+        enemyMoveHandle.Complete();
         // 2. MoveEnemyJob (메인 스레드)
         var replaceJob = new PositionReplaceJob()
         {
@@ -132,7 +129,15 @@ public partial class EnemyMoveSystem : SystemBase
            GridSizeZ = gridData.GridSizeZ
         };
         JobHandle moveEnemyHandle = replaceJob.Schedule(enemyMoveHandle); // 이전 Job 완료 후 실행
-
+        moveEnemyHandle.Complete();
+        
+        for (int i = 0; i < 15000; i++)  // 처음 10개만 확인
+        {
+            if (MoveInfo[i].ToNegY != 0)
+            {
+                Debug.Log($"After MoveInfo[{i}] = {MoveInfo[i].ToNegY}");
+            }
+        }
         // 3. AssignMoveJob (병렬)
         var assignMoveJob = new AssignMoveJob
         {
@@ -144,7 +149,8 @@ public partial class EnemyMoveSystem : SystemBase
             TargetLookup = TargetLookup,
             GridSizeX = gridData.GridSizeX,
             GridSizeY = gridData.GridSizeY,
-            GridSizeZ = gridData.GridSizeZ
+            GridSizeZ = gridData.GridSizeZ,
+            CellSize = gridData.CellSize
         };
         JobHandle assignMoveHandle = assignMoveJob.Schedule(gridData.GridSizeX*gridData.GridSizeY*gridData.GridSizeZ, 64, moveEnemyHandle); 
         // enemyCount는 처리할 요소 수, 64는 batch size
@@ -155,104 +161,95 @@ public partial class EnemyMoveSystem : SystemBase
 }
 
 
-
-[BurstCompile]
-public partial struct PositionReplaceJob : IJobEntity
+[BurstCompile(FloatMode = FloatMode.Fast)]
+public struct PositionReplaceJob : IJob
 {
     [ReadOnly] public NativeArray<int> ProcessOrder;
     public NativeArray<CellMoveInfo> MoveInfo;
     public NativeArray<int> Personnel;
     public NativeArray<int> Available;
     [ReadOnly] public NativeArray<float> Weights;
-    public int GridSizeX;
-    public int GridSizeY;
-    public int GridSizeZ;
+    public int GridSizeX, GridSizeY, GridSizeZ;
+
+    [return: AssumeRange(0,15000)]
+    public int GetOrder([AssumeRange(0,15000)] int index) => ProcessOrder[index];
+    [return: AssumeRange(0,100)]
+    public int GetAvailable([AssumeRange(0,15000)] int index) => Available[index];
+
+    [SkipLocalsInit]
     public void Execute()
     {
-        Span<int> neighbors= stackalloc int[6];
-        Span<float> diffs = stackalloc float[6];
-        Span<int> counts = stackalloc int[6];
-        int idx, availableHere;
-        int x, y, z, i;
-        float weightHere, totalDiff;
-        int nIdx, sum;
-        float diff;
-        var length = ProcessOrder.Length;
+        // stackalloc 대신 고정 개수의 로컬 변수로 대체
+        int x0, x1, x2, x3, x4, x5;
+        float d0, d1, d2, d3, d4, d5;
+        int c0, c1, c2, c3, c4, c5;
+
+        int length = ProcessOrder.Length;
         for (int orderIdx = 0; orderIdx < length; orderIdx++)
         {
-            idx = ProcessOrder[orderIdx];
-            availableHere = Available[idx];
+            int idx = GetOrder(orderIdx);
+            int availableHere = GetAvailable(idx);
             if (availableHere <= 0) continue;
-            x = idx % GridSizeX;
-            y = (idx / GridSizeX) % GridSizeY;
-            z = idx / (GridSizeX * GridSizeY);
-            //Span<int> neighbors = stackalloc int[6];
-            neighbors[0] = x > 0 ? idx - 1 : -1;
-            neighbors[1] = x < GridSizeX - 1 ? idx + 1 : -1;
-            neighbors[2] = y > 0 ? idx - GridSizeX : -1;
-            neighbors[3] = y < GridSizeY - 1 ? idx + GridSizeX : -1;
-            neighbors[4] = z > 0 ? idx - GridSizeX * GridSizeY : -1;
-            neighbors[5] = z < GridSizeZ - 1 ? idx + GridSizeX * GridSizeY : -1;
-            weightHere = Weights[idx];
-            // --- 후보를 찾고 분배 ---
-            totalDiff = 0;
-            for (i = 0; i < 6; i++)
-            {
-                nIdx = neighbors[i];
-                if (nIdx < 0)
-                {
-                    diffs[i] = 0;
-                    continue;
-                }
-                diff = math.max(0, weightHere - Weights[nIdx]);
+            int x = idx % GridSizeX;
+            int y = (idx / GridSizeX) % GridSizeY;
+            int z = idx / (GridSizeX * GridSizeY);
+            x0 = x > 0 ? idx - 1 : -1;
+            x1 = x < GridSizeX - 1 ? idx + 1 : -1;
+            x2 = y > 0 ? idx - GridSizeX : -1;
+            x3 = y < GridSizeY - 1 ? idx + GridSizeX : -1;
+            x4 = z > 0 ? idx - GridSizeX * GridSizeY : -1;
+            x5 = z < GridSizeZ - 1 ? idx + GridSizeX * GridSizeY : -1;
 
-                diffs[i] = diff;
-                totalDiff += diff;
-            }
+            float weightHere = Weights[idx];
 
-            if (totalDiff <= 0) continue;
-            sum = 0;
-            for (i = 0; i < 6; i++)
-            {
-                int targetIdx = neighbors[i];
-                if (targetIdx < 0 || diffs[i] <= 0)
-                {
-                    counts[i] = 0;
-                    continue;
-                }
+            // diffs
+            d0 = (x0 >= 0) ? math.max(0f, weightHere - Weights[x0]) : 0f;
+            d1 = (x1 >= 0) ? math.max(0f, weightHere - Weights[x1]) : 0f;
+            d2 = (x2 >= 0) ? math.max(0f, weightHere - Weights[x2]) : 0f;
+            d3 = (x3 >= 0) ? math.max(0f, weightHere - Weights[x3]) : 0f;
+            d4 = (x4 >= 0) ? math.max(0f, weightHere - Weights[x4]) : 0f;
+            d5 = (x5 >= 0) ? math.max(0f, weightHere - Weights[x5]) : 0f;
 
-                int moveCount = (int)math.floor(availableHere * (diffs[i] / totalDiff));
-                moveCount = math.min(moveCount, 50 - Personnel[targetIdx]);
+            float totalDiff = d0 + d1 + d2 + d3 + d4 + d5;
+            if (totalDiff <= 0f) continue;
 
-                counts[i] = moveCount;
-                sum += moveCount;
-            }
+            int sum = 0;
+            // counts
+            c0 = (x0 < 0 || d0 <= 0f) ? 0 : math.min((int)(availableHere * (d0 / totalDiff)), 50 - Personnel[x0]);
+            sum += c0;
+            c1 = (x1 < 0 || d1 <= 0f) ? 0 : math.min((int)(availableHere * (d1 / totalDiff)), 50 - Personnel[x1]);
+            sum += c1;
+            c2 = (x2 < 0 || d2 <= 0f) ? 0 : math.min((int)(availableHere * (d2 / totalDiff)), 50 - Personnel[x2]);
+            sum += c2;
+            c3 = (x3 < 0 || d3 <= 0f) ? 0 : math.min((int)(availableHere * (d3 / totalDiff)), 50 - Personnel[x3]);
+            sum += c3;
+            c4 = (x4 < 0 || d4 <= 0f) ? 0 : math.min((int)(availableHere * (d4 / totalDiff)), 50 - Personnel[x4]);
+            sum += c4;
+            c5 = (x5 < 0 || d5 <= 0f) ? 0 : math.min((int)(availableHere * (d5 / totalDiff)), 50 - Personnel[x5]);
+            sum += c5;
 
-            // 남은 수를 Weight 차 큰 순서대로 보충
             int remaining = availableHere - sum;
-            for (i = 0; i < 6 && remaining > 0; i++)
+            // 남은 것 보충
+            if (remaining > 0)
             {
-                int targetIdx = neighbors[i];
-                if (targetIdx < 0 || diffs[i] <= 0) continue;
-
-                int capacity = 50 - (Personnel[targetIdx] + counts[i]);
-                if (capacity > 0)
-                {
-                    counts[i]++;
-                    sum++;
-                    remaining--;
-                }
+                // 보충 로직 (비슷하게 분기 단순화)
+                if (x0 >= 0 && d0 > 0f && (50 - (Personnel[x0] + c0)) > 0) { c0++; remaining--;
+                    sum++; if (remaining == 0) goto finishRemaining; }
+                if (x1 >= 0 && d1 > 0f && (50 - (Personnel[x1] + c1)) > 0) { c1++; remaining--; sum++; if (remaining == 0) goto finishRemaining; }
+                if (x2 >= 0 && d2 > 0f && (50 - (Personnel[x2] + c2)) > 0) { c2++; remaining--; sum++; if (remaining == 0) goto finishRemaining; }
+                if (x3 >= 0 && d3 > 0f && (50 - (Personnel[x3] + c3)) > 0) { c3++; remaining--; sum++; if (remaining == 0) goto finishRemaining; }
+                if (x4 >= 0 && d4 > 0f && (50 - (Personnel[x4] + c4)) > 0) { c4++; remaining--; sum++; if (remaining == 0) goto finishRemaining; }
+                if (x5 >= 0 && d5 > 0f && (50 - (Personnel[x5] + c5)) > 0) { c5++; remaining--; sum++; if (remaining == 0) goto finishRemaining; }
             }
-            var tmp = MoveInfo[idx]; // 복사본 가져오기
-            for (i = 0; i < 6; i++)
-            {
-                tmp.Set(i, counts[i]); // 복사본에 값 세팅
-            }
+            finishRemaining:
 
+            CellMoveInfo tmp = MoveInfo[idx];
+            tmp.Set(0, c0); tmp.Set(1, c1); tmp.Set(2, c2);
+            tmp.Set(3, c3); tmp.Set(4, c4); tmp.Set(5, c5);
+            if (x0 >= 0) Personnel[x0] += c0; if (x1 >= 0) Personnel[x1] += c1;  if (x2 >= 0) Personnel[x2] += c2;
+            if (x3 >= 0) Personnel[x3] += c3; if (x4 >= 0) Personnel[x4] += c4;  if (x5 >= 0) Personnel[x5] += c5;
+            Personnel[idx] -= sum;
             MoveInfo[idx] = tmp;
         }
     }
 }
-
-
-
