@@ -1,6 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using Random = Unity.Mathematics.Random;
 
 public enum EnemyState { Move, AttackObstacle, AttackAlly }
 public class EnemyPositionAuthoring : MonoBehaviour
@@ -29,11 +30,10 @@ public struct EnemyPositionComponent : IComponentData
     public EnemyState enemyState;
 
     // CellSize와 시드만 있으면 랜덤 위치 계산 가능
-    public void SetTargetCell(int3 pos, float cellSize,int cellIndex, uint seed)
+    public void SetTargetCell(int3 pos, float cellSize,int cellIndex,ref Random random)
     {
         targetCell = pos;
         this.cellIndex = cellIndex;
-        var random = new Unity.Mathematics.Random(seed);
 
         float3 cellMin = new float3(
             targetCell.x * cellSize,

@@ -32,7 +32,7 @@ public class FlowField : MonoBehaviour
         new Vector3Int(0,1,0), new Vector3Int(0,-1,0),
         new Vector3Int(0,0,1), new Vector3Int(0,0,-1)
     };
-    private int[] moveCost = new int[] {1,1,1,1,3,3};
+    private int[] moveCost = new int[] {1,1,1,1,50,3};
 
     private void Awake()
     {
@@ -91,8 +91,8 @@ public class FlowField : MonoBehaviour
                     for (int dz = 0; dz < data.size.z; dz++)
                     {
                         int gx = data.position.x + dx;
-                        int gy = data.position.z + dy;
-                        int gz = data.position.y + dz;
+                        int gy = data.position.y + dy;
+                        int gz = data.position.z + dz; 
                         if (InBounds(gx, gy, gz))
                             grid[gx, gy, gz] = data.cellType;
                     }
@@ -141,8 +141,16 @@ public class FlowField : MonoBehaviour
                 if (!InBounds(nx, ny, nz)) continue;
                 if (grid[nx, ny, nz] == CellType.Obstacle || grid[nx, ny, nz] == CellType.Wall)
                     continue;
+                float newCost = 0;
+                if (moveCost[i] == 1)
+                {
+                    newCost = currentCost + moveCost[i]*(nz+1)*(nz+1)*(nz+1);
+                }
+                else
+                {
+                    newCost = currentCost + moveCost[i];
+                }
 
-                float newCost = currentCost + moveCost[i];
                 if (newCost < costMap[nx, ny, nz])
                 {
                     costMap[nx, ny, nz] = newCost;

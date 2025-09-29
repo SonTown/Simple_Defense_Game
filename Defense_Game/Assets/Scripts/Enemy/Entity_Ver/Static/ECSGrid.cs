@@ -83,7 +83,7 @@ public struct AssignMoveJob : IJobParallelFor
     [ReadOnly] public int GridSizeY;
     [ReadOnly] public int GridSizeZ;
     [ReadOnly] public float CellSize;
-
+    [ReadOnly] public NativeArray<Unity.Mathematics.Random> randomArray;
     public void Execute(int cellId)
     {
         var moveInfo = CellMoves[cellId];
@@ -124,8 +124,9 @@ public struct AssignMoveJob : IJobParallelFor
             {
                 int entityIndex = CellIndices[start + assignedOffset + i];
                 Entity e = targets[entityIndex];
-                var enemy = TargetLookup[e];  // ref로 접근
-                enemy.SetTargetCell(dst, CellSize, targetCellId, (uint)(i * 12345 + 1));
+                var enemy = TargetLookup[e]; // ref로 접근
+                var random = randomArray[entityIndex];
+                enemy.SetTargetCell(dst, CellSize, targetCellId, ref random);
                 TargetLookup[e] = enemy;
             }
 

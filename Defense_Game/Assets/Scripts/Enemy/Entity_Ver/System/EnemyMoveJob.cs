@@ -31,8 +31,8 @@ public partial struct MoveEnemyJob : IJobEntity
             transform.Position= enemy.position;
             enemy.cell=enemy.targetCell;
             int insertIndex = CellStart[enemy.cellIndex];
-            CellCount[enemy.cellIndex] += 1;
             CellIndices[CellCount[enemy.cellIndex] + insertIndex] = enemy.entityIndex;
+            CellCount[enemy.cellIndex] += 1;
         }
         else
         {
