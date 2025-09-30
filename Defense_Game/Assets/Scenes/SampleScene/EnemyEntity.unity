@@ -254,6 +254,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Ally_Entity (3)
       objectReference: {fileID: 0}
+    - target: {fileID: 1190452667955740528, guid: cfc3d08c9b5d6fb43bbaa07bcf7fc46e, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 5588283584077828238, guid: cfc3d08c9b5d6fb43bbaa07bcf7fc46e, type: 3}
       propertyPath: m_LocalPosition.x
       value: 32.9

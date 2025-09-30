@@ -8,7 +8,8 @@ public class IsoCameraController : MonoBehaviour
 
     [Header("회전 설정")]
     public float rotationSpeed = 5f;  // 마우스 회전 감도
-    private float currentAngle = 0f;
+    private float currentAngleX = 0f;
+    private float currentAngleY = 30f;
 
     [Header("줌 설정")]
     public float zoomSpeed = 5f;      // 줌 속도
@@ -36,18 +37,20 @@ public class IsoCameraController : MonoBehaviour
         if (target == null || cameraPivot == null) return;
 
         // 1. 회전 (마우스 왼쪽 버튼 눌렀을 때만)
-        if (Input.GetMouseButton(0)) // 0 = 왼쪽 버튼
+        if (Input.GetMouseButton(1)) // 0 = 왼쪽 버튼
         {
             float mouseX = Input.GetAxis("Mouse X");
+            float mouseY = Input.GetAxis("Mouse Y");
             if (Mathf.Abs(mouseX) > 0.01f)
             {
-                currentAngle += mouseX * rotationSpeed;
+                currentAngleX += mouseX * rotationSpeed;
+                currentAngleY -= mouseY * rotationSpeed;
             }
         }
 
         // pivot을 타겟 위치로 고정
         cameraPivot.position = target.position;
-        cameraPivot.rotation = Quaternion.Euler(30f, currentAngle, 0f);
+        cameraPivot.rotation = Quaternion.Euler(currentAngleY, currentAngleX, 0f);
 
         // 2. 줌 처리 (마우스 휠)
         float scroll = Input.GetAxis("Mouse ScrollWheel");

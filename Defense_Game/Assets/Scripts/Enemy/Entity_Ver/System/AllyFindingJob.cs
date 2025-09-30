@@ -5,6 +5,7 @@ using Unity.Transforms;
 
 public partial struct AllyFindingJob : IJobEntity
 {
+    [NativeDisableParallelForRestriction]
     public NativeArray<float3> Target;   // 각 셀의 가장 가까운 Ally 좌표 저장
     public SpatialGridData data;
     public int captureDist;

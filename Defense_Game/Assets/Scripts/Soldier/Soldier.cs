@@ -1,22 +1,35 @@
 using System;
 using System.Collections.Generic;
+using Unity.Entities;
 using UnityEngine;
 
 public class Soldier : MonoBehaviour
 {
     [Header("Data")] public SoldierData data;
     [Header("Weapon")] public Weapon weapon;
-    
+    private Entity soldierEntity;
+    private EntityManager entityManager;
     private Enemy target;
     public LayerMask hitMask;
 
     public void Awake()
     {
         weapon.Initialize(this);
+        entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+        soldierEntity = entityManager.CreateEntity(typeof(SoldierComponent));
+        entityManager.SetComponentData(soldierEntity, new SoldierComponent
+        {
+            id=GetInstanceID(),
+            atkRange = 10,
+            position = transform.position,
+        });
     }
 
     void Update()
     { 
+        var comp = entityManager.GetComponentData<SoldierComponent>(soldierEntity);
+        comp.position = transform.position;
+        entityManager.SetComponentData(soldierEntity, comp);
         if (target == null || !target.isAlive || Vector3.Distance(transform.position, target.transform.position) > weapon.weaponData.AttackRange)
         {
             target = EnemyManager.Instance.GetBestTarget(transform.position, weapon.weaponData.AttackRange);

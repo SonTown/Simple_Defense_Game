@@ -15,6 +15,8 @@ public partial class EnemyMoveSystem : SystemBase
     private NativeArray<int> CellCount;
     private NativeArray<int> CellIndices;
     private NativeArray<int> Personnel;
+    private NativeArray<int> AllCount;
+    private NativeArray<int> AllIndices;
     private NativeArray<float3> TargetPos;
     private NativeArray<CellMoveInfo> MoveInfo;
     private NativeArray<float> weightsValues;
@@ -33,6 +35,9 @@ public partial class EnemyMoveSystem : SystemBase
         }
         CellCount= new NativeArray<int>(15000,Allocator.Persistent);
         CellIndices= new NativeArray<int>(15000*50,Allocator.Persistent);
+        
+        AllCount = new NativeArray<int>(15000,Allocator.Persistent);
+        AllIndices= new NativeArray<int>(15000*50,Allocator.Persistent);
         MoveInfo = new NativeArray<CellMoveInfo>(15000,Allocator.Persistent);
         Personnel=new NativeArray<int>(15000,Allocator.Persistent);
         TargetPos=new NativeArray<float3>(15000,Allocator.Persistent);
@@ -112,6 +117,7 @@ public partial class EnemyMoveSystem : SystemBase
         {
             CellCount[i] = 0;
             TargetPos[i] = float3.zero;
+            AllCount[i] = 0;
         }
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
         // 1. EnemyMoveJob (병렬)
@@ -120,16 +126,28 @@ public partial class EnemyMoveSystem : SystemBase
             deltaTime = SystemAPI.Time.DeltaTime,
             CellStart = CellStart,
             CellCount = CellCount,
-            CellIndices =  CellIndices
+            CellIndices =  CellIndices,
+            AllCount = AllCount,
+            AllIndices = AllIndices,
         };
-        JobHandle enemyMoveHandle = enemyMoveJob.ScheduleParallel(Dependency);
+        JobHandle enemyMoveHandle = enemyMoveJob.Schedule(Dependency);
         var allyFindingJob = new AllyFindingJob
         {
             Target = TargetPos,
             data = gridData,
             captureDist = 4
         };
-        JobHandle allyFindingHandle = allyFindingJob.Schedule(enemyMoveHandle);
+        JobHandle allyFindingHandle = allyFindingJob.ScheduleParallel(enemyMoveHandle);
+        var enemyFindingJob = new EnemyFindingJob
+        {
+            CellStart =  CellStart,
+            CellCount = AllCount,
+            CellIndices = AllIndices,
+            Targets = Enemies,
+            GridData = gridData,
+            TargetLookup = TargetLookup,
+        };
+        JobHandle enemyFindingHandle = enemyFindingJob.ScheduleParallel(allyFindingHandle);
         // 2. MoveEnemyJob (메인 스레드)
         var replaceJob = new PositionReplaceJob()
         {
@@ -145,7 +163,7 @@ public partial class EnemyMoveSystem : SystemBase
            CellSize = gridData.CellSize,
            GridData=gridData,
         };
-        JobHandle moveEnemyHandle = replaceJob.Schedule(allyFindingHandle); // 이전 Job 완료 후 실행
+        JobHandle moveEnemyHandle = replaceJob.Schedule(enemyFindingHandle); // 이전 Job 완료 후 실행
         // 3. AssignMoveJob (병렬)
         var assignMoveJob = new AssignMoveJob
         {

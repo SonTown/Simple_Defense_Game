@@ -18,6 +18,8 @@ public partial struct MoveEnemyJob : IJobEntity
     public NativeArray<int> CellCount;
     [NativeDisableParallelForRestriction]
     public NativeArray<int> CellIndices;
+    public NativeArray<int> AllCount;
+    public NativeArray<int> AllIndices;
 
     public void Execute(ref LocalTransform transform, ref EnemyPositionComponent enemy, in EnemyBaseDataComponent baseData)
     {
@@ -39,6 +41,9 @@ public partial struct MoveEnemyJob : IJobEntity
             enemy.position += math.normalize(dir) * speed * deltaTime;
             transform.Position= enemy.position;
         }
+
+        AllIndices[AllCount[enemy.cellIndex] + CellStart[enemy.cellIndex]] = enemy.entityIndex;
+        AllCount[enemy.cellIndex] += 1;
     }
 }
 
