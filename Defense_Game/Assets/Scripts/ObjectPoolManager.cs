@@ -19,7 +19,7 @@ public class ObjectPoolManager : MonoBehaviour
             () => Instantiate(bulletTrailPrefab),
             go => go.SetActive(true),
             go => go.SetActive(false),
-            go => Destroy(go), 
+            go => DestroyImmediate(go), 
             false, 20, 100
         );
 
@@ -27,7 +27,7 @@ public class ObjectPoolManager : MonoBehaviour
             () => Instantiate(impactFxPrefab),
             go => go.SetActive(true),
             go => go.SetActive(false),
-            go => Destroy(go),
+            go => DestroyImmediate(go),
             false, 20, 50
         );
     }

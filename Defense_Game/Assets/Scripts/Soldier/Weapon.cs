@@ -33,6 +33,7 @@ public class Weapon : MonoBehaviour
         else if (currentState == IdleState.Instance && leftAmmo <= 0 && leftMagazine > 0)
             ChangeState(ReloadState.Instance);
     }
+    public bool isIdle => currentState == IdleState.Instance;
 
     public void Fire()
     {

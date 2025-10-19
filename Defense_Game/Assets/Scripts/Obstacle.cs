@@ -1,7 +1,13 @@
+using System;
+using Unity.Entities;
 using UnityEngine;
 
 public class Obstacle : MonoBehaviour
 {
+    //Entity Info
+    private Entity soldierEntity;
+    private EntityManager entityManager;
+    
     [Header("Grid Data")]
     public Vector3Int size = new Vector3Int(1, 5, 5); 
     public Vector3Int origin;  
@@ -9,6 +15,16 @@ public class Obstacle : MonoBehaviour
     [Header("Properties")]
     public FlowField.CellType cellType = FlowField.CellType.Obstacle;
     public bool destructible = true;
+
+    public void Awake()
+    {
+        entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+        soldierEntity = entityManager.CreateEntity(typeof(ObstacleComponent));
+        entityManager.SetComponentData(soldierEntity, new ObstacleComponent
+        {
+            
+        });
+    }
 
     public ObstacleData ToData()
     {

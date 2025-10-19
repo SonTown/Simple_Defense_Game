@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Unity.Entities;
 using Unity.Transforms;
 using Unity.Mathematics;
@@ -22,6 +23,8 @@ public partial class EnemyMoveSystem : SystemBase
     private NativeArray<float> weightsValues;
     private NativeArray<int> orderValues;
     private ComponentLookup<EnemyPositionComponent> TargetLookup;
+    private ComponentLookup<EnemyHealthComponent> HealthLookup;
+    private ComponentLookup<IsAlive> IsAliveLookup;
     public NativeArray<Entity> Enemies;
     public NativeArray<Random> randomArray;
     private int enemyCount = 75000;
@@ -42,6 +45,8 @@ public partial class EnemyMoveSystem : SystemBase
         Personnel=new NativeArray<int>(15000,Allocator.Persistent);
         TargetPos=new NativeArray<float3>(15000,Allocator.Persistent);
         TargetLookup = GetComponentLookup<EnemyPositionComponent>(false);
+        HealthLookup = GetComponentLookup<EnemyHealthComponent>(false);
+        IsAliveLookup= GetComponentLookup<IsAlive>(false);
         weightsValues = new NativeArray<float>(12500, Allocator.Persistent);
         orderValues = new NativeArray<int>(12500, Allocator.Persistent);
         randomArray = new NativeArray<Unity.Mathematics.Random>(enemyCount, Allocator.Persistent);
@@ -111,8 +116,11 @@ public partial class EnemyMoveSystem : SystemBase
     }
     protected override void OnUpdate()
     {
-        
         TargetLookup.Update(this);
+        HealthLookup.Update(this);
+        IsAliveLookup.Update(this);
+        var ecbSystem = World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+        var ecb = ecbSystem.CreateCommandBuffer();
         for (int i = 0; i < CellCount.Length; i++)
         {
             CellCount[i] = 0;
@@ -120,7 +128,7 @@ public partial class EnemyMoveSystem : SystemBase
             AllCount[i] = 0;
         }
         var gridData = SystemAPI.GetSingleton<SpatialGridData>();
-        // 1. EnemyMoveJob (병렬)
+        // 1. EnemyMoveJob- 적군 위치 이동 및 객체 할당
         var enemyMoveJob = new MoveEnemyJob
         {
             deltaTime = SystemAPI.Time.DeltaTime,
@@ -131,13 +139,16 @@ public partial class EnemyMoveSystem : SystemBase
             AllIndices = AllIndices,
         };
         JobHandle enemyMoveHandle = enemyMoveJob.Schedule(Dependency);
+        // 2. AllyFindingJob- 아군 위치를 그리드 별로 할당
         var allyFindingJob = new AllyFindingJob
         {
             Target = TargetPos,
             data = gridData,
-            captureDist = 4
+            captureDist = 4,
+            Weights = weightsValues,
         };
         JobHandle allyFindingHandle = allyFindingJob.ScheduleParallel(enemyMoveHandle);
+        // 3. EnemyFindingJob- 아군에게 적을 할당
         var enemyFindingJob = new EnemyFindingJob
         {
             CellStart =  CellStart,
@@ -146,14 +157,15 @@ public partial class EnemyMoveSystem : SystemBase
             Targets = Enemies,
             GridData = gridData,
             TargetLookup = TargetLookup,
+            Weights = weightsValues,
         };
         JobHandle enemyFindingHandle = enemyFindingJob.ScheduleParallel(allyFindingHandle);
-        // 2. MoveEnemyJob (메인 스레드)
+        // 4. PositionReplaceJob- 그리드별로 명 수 할당
         var replaceJob = new PositionReplaceJob()
         {
            ProcessOrder = orderValues,
            MoveInfo = MoveInfo,
-           Personnel = Personnel,
+           Personnel = AllCount,
            Available = CellCount,
            Weights = weightsValues,
            TargetPos = TargetPos,
@@ -164,7 +176,7 @@ public partial class EnemyMoveSystem : SystemBase
            GridData=gridData,
         };
         JobHandle moveEnemyHandle = replaceJob.Schedule(enemyFindingHandle); // 이전 Job 완료 후 실행
-        // 3. AssignMoveJob (병렬)
+        // 5. AssignMoveJob- 위치에 대상 객체 할당
         var assignMoveJob = new AssignMoveJob
         {
             randomArray = randomArray,
@@ -180,10 +192,30 @@ public partial class EnemyMoveSystem : SystemBase
             CellSize = gridData.CellSize
         };
         JobHandle assignMoveHandle = assignMoveJob.Schedule(gridData.GridSizeX*gridData.GridSizeY*gridData.GridSizeZ, 64, moveEnemyHandle); 
-        // enemyCount는 처리할 요소 수, 64는 batch size
-
-        // 최종 의존성 저장
-        Dependency = assignMoveHandle;
+        //6. EnemyDamageJob- 적군에 총알에 대한 데미지 판정
+        NativeList<ShootEvent> allEvents = new NativeList<ShootEvent>(Allocator.TempJob);
+        foreach (var buffer in SystemAPI.Query<DynamicBuffer<ShootEvent>>())
+        {
+            allEvents.AddRange(buffer.AsNativeArray());
+            buffer.Clear();
+        }
+        var enemyDamageJob = new EnemyDamageJob
+        {
+            CellStart = CellStart,
+            CellCount = AllCount,
+            CellIndices = AllIndices,
+            Targets = Enemies,
+            GridData = gridData,
+            TargetLookup = TargetLookup,
+            HealthLookup = HealthLookup,
+            IsAliveLookup = IsAliveLookup,
+            shootInfos = allEvents,
+            ecb = ecb,
+        };
+        JobHandle enemyDamageHandle = enemyDamageJob.Schedule(assignMoveHandle);
+        ecbSystem.AddJobHandleForProducer(enemyDamageHandle);
+        allEvents.Dispose(enemyDamageHandle);
+        Dependency = enemyDamageHandle;
     }
 }
 
@@ -205,7 +237,18 @@ public struct PositionReplaceJob : IJob
     public int GetOrder([AssumeRange(0,15000)] int index) => ProcessOrder[index];
     [return: AssumeRange(0,100)]
     public int GetAvailable([AssumeRange(0,15000)] int index) => Available[index];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    float CalcDist(int idx, int cell, int3 targetPos)
+    {
+        if (cell < 0) return float.MaxValue;
 
+        int3 cellPos = new int3(
+            cell % GridSizeX,
+            (cell / GridSizeX) % GridSizeY,
+            (cell / (GridSizeX * GridSizeY))
+        );
+        return math.distance(cellPos, targetPos);
+    }
     [SkipLocalsInit]
     public void Execute()
     {
@@ -213,7 +256,7 @@ public struct PositionReplaceJob : IJob
         int x0, x1, x2, x3, x4, x5;
         float d0, d1, d2, d3, d4, d5;
         int c0, c1, c2, c3, c4, c5;
-
+        
         int length = ProcessOrder.Length;
         for (int orderIdx = 0; orderIdx < length; orderIdx++)
         {
@@ -253,82 +296,45 @@ public struct PositionReplaceJob : IJob
             if (availableHere > 0)
             {
                 float3 target = TargetPos[idx];
-                if (math.lengthsq(target) > 1e-6f){ // target이 거의 0이 아닐 때
-                    if (math.any(FlowFieldUtils.GetGrid(GridData, target) != new int3(x, y, z))){
+                if (math.lengthsq(target) > 1e-3f){ // target이 거의 0이 아닐 때
+                    int3 tarPos = FlowFieldUtils.GetGrid(GridData, target);
+                    if (math.any(tarPos != new int3(x, y, z))){
                         // 각 방향별 후보 위치
-                        int[] dirs = { x0, x1, x2, x3, x4, x5 };
-                        float[] dist = new float[6];
-                        for (int i = 0; i < 6; i++)
-                        {
-                            if (dirs[i] < 0)
-                            {
-                                dist[i] = float.MaxValue;
-                                continue;
-                            }
-
-                            if (math.distancesq(TargetPos[idx], TargetPos[dirs[i]]) > 1e-6f)
-                            {
-                                dist[i] = float.MaxValue;
-                                continue;
-                            }
-                            float3 neigh = new float3(
-                                (dirs[i] % GridSizeX + 0.5f) * CellSize,
-                                ((dirs[i] / GridSizeX) % GridSizeY + 0.5f) * CellSize,
-                                (dirs[i] / (GridSizeX * GridSizeY) + 0.5f) * CellSize
-                            );
-                            dist[i] = math.distance(neigh, target);
-                        }
-
+                        float dist0 = CalcDist(idx,x0, tarPos);
+                        float dist1 = CalcDist(idx,x1, tarPos);
+                        float dist2 = CalcDist(idx,x2, tarPos);
+                        float dist3 = CalcDist(idx,x3, tarPos);
+                        float dist4 = CalcDist(idx,x4, tarPos);
+                        float dist5 = float.MaxValue;
                         // 거리 순 정렬 후, 최대 3개까지 분배
                         for (int count = 0; count < 3 && availableHere > 0; count++)
                         {
                             int bestDir = -1;
-                            float bestDist = float.MaxValue;
-                            for (int i = 0; i < 6; i++)
-                            {
-                                if (dirs[i] >= 0 && dist[i] < bestDist && Personnel[dirs[i]] < 50)
-                                {
-                                    bestDir = i;
-                                    bestDist = dist[i];
-                                }
-                            }
+                            float bestDist = float.MaxValue/10;
+
+                            if (x0 >= 0 && dist0 < bestDist && Personnel[x0] < 50) { bestDir = 0; bestDist = dist0; }
+                            if (x1 >= 0 && dist1 < bestDist && Personnel[x1] < 50) { bestDir = 1; bestDist = dist1; }
+                            if (x2 >= 0 && dist2 < bestDist && Personnel[x2] < 50) { bestDir = 2; bestDist = dist2; }
+                            if (x3 >= 0 && dist3 < bestDist && Personnel[x3] < 50) { bestDir = 3; bestDist = dist3; }
+                            if (x4 >= 0 && dist4 < bestDist && Personnel[x4] < 50) { bestDir = 4; bestDist = dist4; }
+                            if (x5 >= 0 && dist5 < bestDist && Personnel[x5] < 50) { bestDir = 5; bestDist = dist5; }
 
                             if (bestDir < 0) break;
 
-                            int moveCnt = math.min(availableHere, 50 - Personnel[dirs[bestDir]]);
-                            availableHere -= moveCnt;
-                            Personnel[idx] -= moveCnt;
+                            int moveCnt = 0;
                             switch (bestDir)
                             {
-                                case 0:
-                                    c0 += moveCnt;
-                                    dist[1] = float.MaxValue;
-                                    break;
-                                case 1:
-                                    c1 += moveCnt;
-                                    dist[0] = float.MaxValue;
-                                    break;
-                                case 2:
-                                    c2 += moveCnt;
-                                    dist[3] = float.MaxValue;
-                                    break;
-                                case 3:
-                                    c3 += moveCnt;
-                                    dist[2] = float.MaxValue;
-                                    break;
-                                case 4:
-                                    c4 += moveCnt;
-                                    dist[5] = float.MaxValue;
-                                    break;
-                                case 5:
-                                    c5 += moveCnt;
-                                    dist[4] = float.MaxValue;
-                                    break;
+                                case 0: moveCnt = math.min(availableHere, 50 - Personnel[x0]); Personnel[idx] -= moveCnt; c0 += moveCnt; dist1 = float.MaxValue; dist0 = float.MaxValue; break;
+                                case 1: moveCnt = math.min(availableHere, 50 - Personnel[x1]); Personnel[idx] -= moveCnt; c1 += moveCnt; dist0 = float.MaxValue; dist1 = float.MaxValue; break;
+                                case 2: moveCnt = math.min(availableHere, 50 - Personnel[x2]); Personnel[idx] -= moveCnt; c2 += moveCnt; dist3 = float.MaxValue; dist2 = float.MaxValue; break;
+                                case 3: moveCnt = math.min(availableHere, 50 - Personnel[x3]); Personnel[idx] -= moveCnt; c3 += moveCnt; dist2 = float.MaxValue; dist3 = float.MaxValue; break;
+                                case 4: moveCnt = math.min(availableHere, 50 - Personnel[x4]); Personnel[idx] -= moveCnt; c4 += moveCnt; dist5 = float.MaxValue; dist4 = float.MaxValue; break;
+                                case 5: moveCnt = math.min(availableHere, 50 - Personnel[x5]); Personnel[idx] -= moveCnt; c5 += moveCnt; dist4 = float.MaxValue; dist5 = float.MaxValue; break;
                             }
 
-                            // 이 방향은 사용 완료 처리
-                            dist[bestDir] = float.MaxValue;
+                            availableHere -= moveCnt;
                         }
+
                     }
                 }
                 else
@@ -374,9 +380,9 @@ public struct PositionReplaceJob : IJob
                             sum+=c6;
                         }
                     }
-                    finishRemaining: ;
                 }
             }
+            finishRemaining:
             tmp.Set(0, c0); tmp.Set(1, c1); tmp.Set(2, c2);
             tmp.Set(3, c3); tmp.Set(4, c4); tmp.Set(5, c5);
             if (x0 >= 0) Personnel[x0] += c0; if (x1 >= 0) Personnel[x1] += c1;  if (x2 >= 0) Personnel[x2] += c2;

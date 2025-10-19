@@ -8,6 +8,7 @@ public class DragDirection : MonoBehaviour
     public SquadManager squadManager;
     public Squad testSquad;
     private Vector3 direction;
+    public LayerMask layerMask;
     void Update()
     {
         // 마우스 클릭 시작
@@ -18,7 +19,7 @@ public class DragDirection : MonoBehaviour
                 Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
                 RaycastHit hit;
 
-                if (Physics.Raycast(ray, out hit))
+                if (Physics.Raycast(ray, out hit,Mathf.Infinity,layerMask))
                 {
                     clickStartPos = hit.point; // 클릭한 지형 위치
                     isDragging = true;
@@ -46,7 +47,7 @@ public class DragDirection : MonoBehaviour
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
 
-            if (Physics.Raycast(ray, out hit))
+            if (Physics.Raycast(ray, out hit,Mathf.Infinity,layerMask))
             {
                 Vector3 currentPos = hit.point;
                 direction = (currentPos - clickStartPos); // 방향

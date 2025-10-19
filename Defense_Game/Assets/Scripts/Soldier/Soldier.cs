@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class Soldier : MonoBehaviour
@@ -9,9 +10,8 @@ public class Soldier : MonoBehaviour
     [Header("Weapon")] public Weapon weapon;
     private Entity soldierEntity;
     private EntityManager entityManager;
-    private Enemy target;
     public LayerMask hitMask;
-
+    private Entity targetEntity;
     public void Awake()
     {
         weapon.Initialize(this);
@@ -20,9 +20,10 @@ public class Soldier : MonoBehaviour
         entityManager.SetComponentData(soldierEntity, new SoldierComponent
         {
             id=GetInstanceID(),
-            atkRange = 10,
+            atkRange = weapon.weaponData.AttackRange,
             position = transform.position,
         });
+        entityManager.AddBuffer<ShootEvent>(soldierEntity);
     }
 
     void Update()
@@ -30,12 +31,16 @@ public class Soldier : MonoBehaviour
         var comp = entityManager.GetComponentData<SoldierComponent>(soldierEntity);
         comp.position = transform.position;
         entityManager.SetComponentData(soldierEntity, comp);
-        if (target == null || !target.isAlive || Vector3.Distance(transform.position, target.transform.position) > weapon.weaponData.AttackRange)
+        targetEntity=comp.target;
+        if (weapon.isIdle)
         {
-            target = EnemyManager.Instance.GetBestTarget(transform.position, weapon.weaponData.AttackRange);
+            comp.isReady = true;
         }
-
-        if (target != null)
+        else
+        {
+            comp.isReady = false;
+        }
+        if (targetEntity != Entity.Null)
         {
             weapon.TryFire();
         }
@@ -52,43 +57,40 @@ public class Soldier : MonoBehaviour
     }
     public void Fire()
     {
-        if (target != null)
+        if (targetEntity != Entity.Null)
         {
-            if (weapon.weaponData.isExplosive == false)
-            {
-                ShootAt(target);
-            }
-            else
-            {
-                ShootExplosiveAt(target);
-            }
+           ShootAt(targetEntity);
         }
     }
-    void ShootAt(Enemy e)
+    void ShootAt(Entity e)
     {
+        if (!entityManager.HasComponent<EnemyPositionComponent>(e))
+            return;
+
+        var enemyPos = entityManager.GetComponentData<EnemyPositionComponent>(e);
         Vector3 start = transform.position;
-        Vector3 dir = (e.transform.position - start).normalized;
+        Vector3 targetPos = enemyPos.position;
+        Vector3 dir = (targetPos - start);
+        float dist = dir.magnitude;
+        dir.Normalize();
 
-        if (Physics.Raycast(start, dir, out RaycastHit hit, weapon.weaponData.AttackRange, hitMask))
+        if (dist <= weapon.weaponData.AttackRange && weapon.leftAmmo > 0)
         {
-            // 총알 궤적
-            if (hit.collider.tag == "Enemy")
+            ObjectPoolManager.Instance.SpawnBulletTrail(start, targetPos);
+            // SoldierEntity에 달린 DamageBuffer 가져오기
+            var buffer = entityManager.GetBuffer<ShootEvent>(soldierEntity);
+            buffer.Add(new ShootEvent()
             {
-                ObjectPoolManager.Instance.SpawnBulletTrail(start, hit.point);
-
-                // Enemy에 맞았으면 데미지
-                Enemy enemy = hit.collider.GetComponent<Enemy>();
-                if (enemy != null && weapon.leftAmmo > 0)
-                {
-                    enemy.TakeDamage(10);
-                    weapon.ChangeState(FireState.Instance);
-                    this.gameObject.transform.LookAt(enemy.transform.position);
-                }
-            }
-            else
-            {
-                target = null;
-            }
+                target = e,
+                damage = weapon.weaponData.Damage,
+                range = weapon.weaponData.explodeRange,
+            });
+            weapon.ChangeState(FireState.Instance);
+            transform.LookAt(enemyPos.position);
+        }
+        else
+        {
+            targetEntity = Entity.Null;
         }
     }
     void ShootExplosiveAt(Enemy targetEnemy)

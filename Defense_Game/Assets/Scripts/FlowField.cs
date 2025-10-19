@@ -43,6 +43,7 @@ public class FlowField : MonoBehaviour
         costMap = new float[gridSizeX, gridSizeY, gridSizeZ];
 
         LoadObstacles();
+        surface.BuildNavMesh();
     }
 
     private void Start()
@@ -99,7 +100,7 @@ public class FlowField : MonoBehaviour
 
             // 시각화
             Vector3 pos = new Vector3(data.position.x * cellSize + cellSize / 2,
-                                      data.position.z * cellSize + cellSize / 2,
+                                      data.position.z * cellSize + cellSize / 2-1,
                                       data.position.y * cellSize);
             Instantiate(obstaclePrefab, pos, Quaternion.identity);
         }

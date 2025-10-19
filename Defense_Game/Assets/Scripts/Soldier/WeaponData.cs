@@ -1,5 +1,7 @@
 using UnityEngine;
 using Cysharp.Threading.Tasks;
+using UnityEngine.Serialization;
+
 [CreateAssetMenu(fileName = "WeaponData", menuName = "RTS/WeaponData")]
 public class WeaponData : ScriptableObject
 {
@@ -9,6 +11,7 @@ public class WeaponData : ScriptableObject
     public int MaxMagazine = 5;
     [Header("Type")] 
     public bool isExplosive = false;
+    [FormerlySerializedAs("range")] public float explodeRange = 0;
     [Header("Cooldowns")]
     public float AttackRange = 30f;
     public float AttackDelay = 0.1f;
@@ -28,7 +31,7 @@ public class IdleState : IWeaponState
 
     public void Enter(Weapon weapon)
     {
-        Debug.Log($"[{weapon.name}] Idle 상태 진입");
+        //Debug.Log($"[{weapon.name}] Idle 상태 진입");
     }
 
     public void Exit(Weapon weapon) {}

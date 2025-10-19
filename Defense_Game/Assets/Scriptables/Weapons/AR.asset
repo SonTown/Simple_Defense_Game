@@ -12,10 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4d02cc7efec6bec4c8b0ecd832bd8d45, type: 3}
   m_Name: AR
   m_EditorClassIdentifier: 
-  Damage: 10
+  Damage: 3
   MaxAmmo: 30
   MaxMagazine: 5
-  AttackRange: 20
+  isExplosive: 0
+  explodeRange: 0
+  AttackRange: 10
   AttackDelay: 0.1
   ReloadDelay: 1.2
   SupplyDelay: 2

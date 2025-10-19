@@ -11,7 +11,7 @@ public partial struct EnemyFindingJob : IJobEntity
     [ReadOnly] public NativeArray<Entity> Targets;    // 모든 적 엔티티
     [ReadOnly] public SpatialGridData GridData;
     [ReadOnly] public ComponentLookup<EnemyPositionComponent> TargetLookup;
-
+    [ReadOnly] public NativeArray<float> Weights;
     void Execute(ref SoldierComponent soldier)
     {
         int3 cell = FlowFieldUtils.GetGrid(GridData, soldier.position);
@@ -42,19 +42,21 @@ public partial struct EnemyFindingJob : IJobEntity
             // 셀 중심 좌표
             float3 cellCenter = new float3(
                 (neighbor.x + 0.5f) * GridData.CellSize,
-                (neighbor.y + 0.5f) * GridData.CellSize,
-                (neighbor.z + 0.5f) * GridData.CellSize
+                (neighbor.z + 0.5f) * GridData.CellSize,
+                (neighbor.y + 0.5f) * GridData.CellSize
             );
-
             float distSq = math.distancesq(soldier.position, cellCenter);
-
             // 사거리 밖이면 스킵
             if (distSq <= bestDistSq)
             {
+                if (!FindUtils.HasLineOfSight(cell, neighbor, GridData, Weights))
+                {
+                    //Debug.LogError(cell+ " "+neighbor);
+                    continue;
+                }
                 if (CellCount[cellIndex] > 0)
                 {
                     candidateCells.Add((distSq, cellIndex));
-                    Debug.Log(neighbor+" : "+cell);
                 }
             }
         }
@@ -86,11 +88,6 @@ public partial struct EnemyFindingJob : IJobEntity
             }
             // 이미 사거리 내 가장 가까운 적 찾았으면 종료
             if (found) break;
-        }
-
-        if (bestTarget != Entity.Null)
-        {
-            Debug.Log(bestTarget.Index + " : " + bestDistSq);
         }
 
         soldier.target = bestTarget;

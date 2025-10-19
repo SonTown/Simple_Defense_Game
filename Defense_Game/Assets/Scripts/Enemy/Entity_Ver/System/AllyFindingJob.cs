@@ -1,18 +1,21 @@
+using System.Numerics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 public partial struct AllyFindingJob : IJobEntity
 {
     [NativeDisableParallelForRestriction]
-    public NativeArray<float3> Target;   // 각 셀의 가장 가까운 Ally 좌표 저장
+    public NativeArray<float3> Target; // 각 셀의 가장 가까운 Ally 좌표 저장
+    [ReadOnly] public NativeArray<float> Weights;
     public SpatialGridData data;
     public int captureDist;
 
-    void Execute(in LocalTransform transform, in AllyTag tag)
+    void Execute(in SoldierComponent soldier)
     {
-        int3 cell = FlowFieldUtils.GetGrid(data, transform.Position);
+        int3 cell = FlowFieldUtils.GetGrid(data, soldier.position);
 
         // 탐색 범위 설정
         for (int dx = -captureDist; dx <= captureDist; dx++)
@@ -28,7 +31,6 @@ public partial struct AllyFindingJob : IJobEntity
                         neighbor.y < 0 || neighbor.y >= data.GridSizeY ||
                         neighbor.z < 0 || neighbor.z >= data.GridSizeZ)
                         continue;
-
                     int index = neighbor.x 
                               + neighbor.y * data.GridSizeX
                               + neighbor.z * (data.GridSizeX * data.GridSizeY);
@@ -39,15 +41,20 @@ public partial struct AllyFindingJob : IJobEntity
                         (neighbor.y + 0.5f) * data.CellSize,
                         (neighbor.z + 0.5f) * data.CellSize
                     );
+                    if (!FindUtils.HasLineOfSight(cell, neighbor, data, Weights))
+                    {
+                        //Debug.LogError(cell+ " "+neighbor);
+                        continue;
+                    }
 
-                    float newDist = math.distancesq(transform.Position, cellCenter);
+                    float newDist = math.distancesq(soldier.position, cellCenter);
 
                     // 기존 값이 있는지 확인
                     float3 prev = Target[index];
-                    if (math.all(prev == float3.zero))
+                    if (math.all(math.abs(prev)<1e-3f))
                     {
                         // 비어 있으면 무조건 기록
-                        Target[index] = transform.Position;
+                        Target[index] = soldier.position;
                     }
                     else
                     {
@@ -55,7 +62,7 @@ public partial struct AllyFindingJob : IJobEntity
                         if (newDist < prevDist)
                         {
                             // 더 가까우면 갱신
-                            Target[index] = transform.Position;
+                            Target[index] = soldier.position;
                         }
                     }
                 }
